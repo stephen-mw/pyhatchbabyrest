@@ -7,20 +7,17 @@ from .constants import CHAR_TX, CHAR_FEEDBACK, PyHatchBabyRestSound
 
 class PyHatchBabyRest(object):
     """ A synchronous interface to a Hatch Baby Rest device using pygatt. """
+
+    adapter = None
+
     def __init__(self, addr: str = None, adapter: pygatt.GATTToolBackend = None):
         """ Instantiate the interface.
 
         :param addr: A specific address to connect to.
         :param adapter: An already instantiated `pygatt.GATTToolBackend`.
         """
-        if adapter is None:
-            self.adapter = pygatt.GATTToolBackend()
-            self.adapter.start()
-        else:
-            self.adapter = adapter
-
         if addr is None:
-            devices = self.adapter.scan()
+            devices = self.scan()
 
             for device in devices:
                 if device["address"][:8] == "F3:53:11":
@@ -101,6 +98,15 @@ class PyHatchBabyRest(object):
             self.color[0], self.color[1], self.color[2], brightness
         )
         self._send_command(command)
+
+    @classmethod
+    def scan(cls):
+        """Scan for hatch devices."""
+        if cls.adapter is None:
+            cls.adapter = pygatt.GATTToolBackend()
+            cls.adapter.start()
+
+        return cls.adapter.scan()
 
     @property
     def connected(self):
