@@ -1,33 +1,44 @@
 import time
+import logging 
 
 import pygatt  # type: ignore
 
 from .constants import CHAR_TX, CHAR_FEEDBACK, PyHatchBabyRestSound
 
-
 class PyHatchBabyRest(object):
     """ A synchronous interface to a Hatch Baby Rest device using pygatt. """
 
-    adapter = None
-
-    def __init__(self, addr: str = None, adapter: pygatt.GATTToolBackend = None):
-        """ Instantiate the interface.
+    def __init__(self):
+        """
+        Instantiate the interface. Note that either a bluetooth address or a
+        name must be specified in order to connect. Address is preferable
+        because it will directly connect rather than doing a scan.
 
         :param addr: A specific address to connect to.
-        :param adapter: An already instantiated `pygatt.GATTToolBackend`.
+        :param name: A specific name to connect to.
         """
-        if addr is None:
+
+        self.adapter = pygatt.GATTToolBackend()
+        self.adapter.start()
+
+    def connect(self, name: str = None, addr: str = None):
+        if addr is None and name is None:
+            raise ValueError("Either addr or name must be set.")
+
+        if name:
+            logging.info("Caution: connecting by name is slow. Use the address for faster connections.")
+            logging.info(f"scanning for device with name: {name}")
             devices = self.scan()
 
             for device in devices:
-                if device["address"][:8] == "F3:53:11":
+                if device["name"] == name:
+                    logging.info(f'found device with name "{name}" at address {device["address"]}')
                     addr = device["address"]
                     break
             else:
-                raise RuntimeError(
-                    "No address provided and could not find device via scan."
-                )
+                raise RuntimeError(f"Can't find device with name: {name}.")
 
+        logging.info(f"Connecting to device address: {addr}")
         self.device = self.adapter.connect(
             addr, address_type=pygatt.BLEAddressType.random
         )
@@ -99,14 +110,10 @@ class PyHatchBabyRest(object):
         )
         self._send_command(command)
 
-    @classmethod
-    def scan(cls):
+    def scan(self, with_cache=False):
         """Scan for hatch devices."""
-        if cls.adapter is None:
-            cls.adapter = pygatt.GATTToolBackend()
-            cls.adapter.start()
-
-        return cls.adapter.scan()
+        logging.info("Scanning for local bluetooth devices.")
+        return self.adapter.scan()
 
     @property
     def connected(self):
